@@ -1,0 +1,25 @@
+name: Auto Merge Pull Requests
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: 'main'
+
+    - name: Automatic Merge from master to main
+      run: |
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'action@github.com'
+        git fetch origin master
+        git merge origin/master --allow-unrelated-histories -X theirs --no-ff --no-edit
+        git push origin HEAD:main
