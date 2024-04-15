@@ -21,5 +21,5 @@ jobs:
         git config --global user.name 'GitHub Action'
         git config --global user.email 'action@github.com'
         git fetch origin master
-        git merge origin/master --allow-unrelated-histories --no-ff --no-edit
+        git merge origin/master --allow-unrelated-histories -X theirs --no-ff --no-edit
         git push origin HEAD:main
