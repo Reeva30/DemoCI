@@ -1,27 +1,136 @@
-name: .NET Core CI
+name: MSBuild
 
 on:
   push:
-    branches: [ master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "main" ]
+
+env:
+  DEVENV_PATH: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE
+  DEVENV_PATH2: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\devenv.com
+  QT_VERSION: 6.6.1
+  QT_MSVC_ARCH: win64_msvc2019_64
+  QT_PATH: ${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}
+  QT_MSBUILD: ${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+    # Step 1: Check out the main project repository
+    - name: Check out the main project repository
+      uses: actions/checkout@v2
       with:
-        dotnet-version: '8.0.x'  # Specify your .NET version here
+        repository: OT-OpenTwin/OpenTwin
+        ref: Ci
+        path: OpenTwin
 
-    - name: Restore dependencies
-      run: dotnet restore
+    # Step 2: Install Rust 1.76.0
+    - name: Install Rust 1.76.0
+      run: choco install rust --version=1.76.0 -y
+      shell: cmd
 
-    - name: Build
-      run: dotnet build --no-restore -c Release
+    # Step 3: Install Qt using install-qt-action
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'windows'
+        target: 'desktop'
+        arch: ${{ env.QT_MSVC_ARCH }}
+        dir: ${{ github.workspace }}\Qt
 
-    - name: Run tests
-      run: dotnet test --no-build -c Release --verbosity normal
+    # Step 4: Add Visual Studio to PATH
+    - name: Add Visual Studio to PATH
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    # Step 5: Set Qt path and refresh environment
+    - name: Set Qt path and refresh
+      run: |
+        echo "${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        refreshenv
+
+    # Step 6: Check availability of Qt libraries
+    - name: Check availability of Qt libraries
+      run: |
+        dir ${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}\lib
+      shell: cmd
+
+    # Step 7: Check availability of Qt binaries
+    - name: Check availability of Qt binaries
+      run: |
+        dir ${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}\bin
+      shell: cmd
+
+    # Step 8: Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14' # specify the version you need
+
+    # Step 9: Install Yarn
+    - name: Install Yarn
+      run: npm install -g yarn
+
+    # Step 10: Install dependencies
+    - name: Install dependencies
+      run: yarn install
+
+    # Step 11: Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    # Step 12: Install Sphinx and dependencies
+    - name: Install Sphinx and dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install sphinx sphinx-rtd-theme
+
+    # Step 13: Setup and Execute Build with devenv
+    - name: Setup and Execute Build
+      shell: cmd
+      run: |
+        echo "Current directory: %cd%"
+        set OPENTWIN_DEV_ROOT=%cd%\OpenTwin
+        set DEVENV_ROOT_2022=%DEVENV_PATH%
+        set QT_ROOT_DIR=${{ github.workspace }}\Qt\${{ env.QT_VERSION }}\${{ env.QT_MSVC_ARCH }}
+        set PATH=%QT_ROOT_DIR%\bin;%PATH%
+        set QTDIR=%QT_ROOT_DIR%
+        set QMAKESPEC=win32-msvc
+        set QT_PLUGIN_PATH=%QT_ROOT_DIR%\plugins
+        set QtMsBuild=%QT_ROOT_DIR%\bin\qt-msbuild.exe
+        echo "OPENTWIN_DEV_ROOT=%OPENTWIN_DEV_ROOT%"
+        echo "DEVENV_ROOT_2022=%DEVENV_ROOT_2022%"
+        echo "QT_ROOT_DIR=%QT_ROOT_DIR%"
+        echo "QtMsBuild=%QtMsBuild%"
+        echo "Checking directories and necessary files..."
+        echo "OpenTwin directory: %OPENTWIN_DEV_ROOT%"
+        dir %OPENTWIN_DEV_ROOT%
+        echo "Visual Studio 2022 directory: %DEVENV_ROOT_2022%"
+        dir "%DEVENV_ROOT_2022%"
+        echo "Qt directory: %QT_ROOT_DIR%"
+        dir "%QT_ROOT_DIR%"
+        echo "Checking if build.bat exists..."
+        if not exist "%OPENTWIN_DEV_ROOT%\Libraries\OTWidgets\build.bat" (
+          echo "build.bat not found"
+          exit /b 1
+        )
+        echo "Starting build.bat..."
+        call %OPENTWIN_DEV_ROOT%\Libraries\OTWidgets\build.bat
+        echo "All checks passed."
+
+    # Step 14: Debug - Check Environment Variables
+    - name: Debug - Check Environment Variables
+      run: |
+        echo "QT_PATH: %QT_PATH%"
+        echo "QT_MSBUILD: %QT_MSBUILD%"
+        dir %QT_PATH%
+        dir %QT_MSBUILD%
+      shell: cmd
