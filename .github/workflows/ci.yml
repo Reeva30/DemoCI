@@ -3,10 +3,10 @@ name: Build Qt Project
 on:
   push:
     branches:
-      - test
+      - Test
   pull_request:
     branches:
-      - test
+      - Test
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
       with:
-        ref: test
+        ref: Test
 
     - name: Setup Visual Studio 2022
       uses: ilammy/msvc-dev-cmd@v1
