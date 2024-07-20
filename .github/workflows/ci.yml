@@ -28,30 +28,32 @@ jobs:
     - name: Set up Qt environment variables
       run: |
         echo "QTDIR=C:\\Qt\\6.2.4\\msvc2019_64" >> $GITHUB_ENV
-        echo "PATH=$env:PATH;C:\\Qt\\6.2.4\\msvc2019_64\\bin" >> $GITHUB_ENV
-
-    - name: Copy QtMsBuild directory
-      run: |
-        Copy-Item -Recurse -Force "${{ github.workspace }}\QtMsBuild" "$env:LOCALAPPDATA\QtMsBuild"
-        echo "QtMsBuild=$env:LOCALAPPDATA\\QtMsBuild" >> $GITHUB_ENV
-
-    - name: Set DefaultQtVersion environment variable
-      run: |
+        echo "QtMsBuild=${{ github.workspace }}\\QtMsBuild" >> $GITHUB_ENV
         echo "DefaultQtVersion=C:\\Qt\\6.2.4\\msvc2019_64" >> $GITHUB_ENV
+        echo "PATH=${{ env.PATH }};C:\\Qt\\6.2.4\\msvc2019_64\\bin" >> $GITHUB_ENV
 
     - name: Import Qt version registry settings
-      run: reg import "${{ github.workspace }}\QT_Version.reg"
+      run: reg import "${{ github.workspace }}\\QT_Version.reg"
 
     - name: Verify Qt setup
+      env:
+        QTDIR: ${{ env.QTDIR }}
+        QtMsBuild: ${{ env.QtMsBuild }}
+        DefaultQtVersion: ${{ env.DefaultQtVersion }}
       run: |
         echo "QTDIR=$QTDIR"
         echo "QtMsBuild=$QtMsBuild"
         echo "DefaultQtVersion=$DefaultQtVersion"
-        if (-not (Test-Path "$env:QTDIR\\bin\\qmake.exe")) {
-          throw "qmake.exe not found in $env:QTDIR\\bin"
+        if (-not (Test-Path "$QTDIR\\bin\\qmake.exe")) {
+          throw "qmake.exe not found in $QTDIR\\bin"
         }
-        & "$env:QTDIR\\bin\\qmake.exe" -v
+        & "$QTDIR\\bin\\qmake.exe" -v
 
     - name: Build the project using msbuild
+      env:
+        QTDIR: ${{ env.QTDIR }}
+        QtMsBuild: ${{ env.QtMsBuild }}
+        DefaultQtVersion: ${{ env.DefaultQtVersion }}
+        PATH: ${{ env.PATH }}
       run: |
-        msbuild /p:Configuration=Release /p:Platform=x64 path\to\your\solution.sln
+        msbuild /p:Configuration=Release /p:Platform=x64 ${{ github.workspace }}\path\to\your\solution.sln
