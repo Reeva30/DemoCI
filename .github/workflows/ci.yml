@@ -1,156 +1,51 @@
-name: MSBuild
+name: Build Qt Project
 
 on:
   push:
-    branches: [ "Test" ]
+    branches:
+      - main
+      - test
   pull_request:
-    branches: [ "Test" ]
-
-env:
-  DEVENV_PATH: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE
-  DEVENV_PATH2: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\devenv.com
-  QT_PATH: C:\Qt\6.6.1\msvc2019_64
-
-permissions:
-  contents: read
+    branches:
+      - main
+      - test
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    # Step 1: Check out the main project repository
-    - name: Check out the main project repository
-      uses: actions/checkout@v4
-      with:
-        repository: OT-OpenTwin/OpenTwin
-        ref: Ci
-        path: OpenTwin
-
-    # Step 2: Check out the repository where the workflow file is located (assumed same repository)
-    - name: Check out the repository with workflow
-      uses: actions/checkout@v4
-      with:
-        ref: Test
-        path: WorkflowRepo
-
-    - name: Check out the third-party repository
+    - name: Checkout repository
       uses: actions/checkout@v2
       with:
-        repository: OT-OpenTwin/ThirdParty
-        path: ThirdParty
-        fetch-depth: 1  # Limit fetching to the last commit
+        ref: test
 
-        
-    # Step 3: Install Rust 1.76.0
-    - name: Install Rust 1.76.0
-      run: |
-        choco install rust --version=1.76.0 -y
-      shell: cmd
-
-    # Step 4: Install Qt using install-qt-action
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v4
+    - name: Setup Visual Studio 2022
+      uses: ilammy/msvc-dev-cmd@v1
       with:
-        version: '6.6.1'
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2019_64'
+        arch: x64
 
-    - name: Add Visual Studio to PATH
-      uses: microsoft/setup-msbuild@v1.0.2
+    - name: Set up Qt environment variables
+      run: |
+        $qtPath = "C:\\Qt\\6.2.4\\msvc2019_64"
+        [Environment]::SetEnvironmentVariable("QTDIR", $qtPath, "Machine")
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";$qtPath\\bin", "Machine")
 
-    # Step 5: Copy QtMsBuild directory to %LOCALAPPDATA%
     - name: Copy QtMsBuild directory
       run: |
-        echo "Copying QtMsBuild directory to %LOCALAPPDATA%..."
-        xcopy /E /I "%GITHUB_WORKSPACE%\WorkflowRepo\QtMsBuild" "%LOCALAPPDATA%\QtMsBuild"
+        Copy-Item -Recurse -Force "${{ github.workspace }}\QtMsBuild" "$env:LOCALAPPDATA\QtMsBuild"
 
-    # Step 6: Import Qt version registry settings
-    - name: Import Qt Version Registry
+    - name: Set QtMsBuild environment variable
       run: |
-        echo "Importing Qt version registry settings..."
-        reg import "%GITHUB_WORKSPACE%\WorkflowRepo\QT_Version.reg"
+        [Environment]::SetEnvironmentVariable("QtMsBuild", "$env:LOCALAPPDATA\QtMsBuild", "Machine")
 
-    # Step 7: Set environment variables
-    - name: Set Environment Variables
+    - name: Set DefaultQtVersion environment variable
       run: |
-        set QtMsBuild=%LOCALAPPDATA%\QtMsBuild
-        set DefaultQtVersion=C:\Qt\6.6.1\msvc2019_64
-      shell: cmd
+        [Environment]::SetEnvironmentVariable("DefaultQtVersion", "C:\\Qt\\6.2.4\\msvc2019_64", "Machine")
 
-    - name: Debug - List repository files
-      run: dir /s
-      shell: cmd
+    - name: Import Qt version registry settings
+      run: reg import "${{ github.workspace }}\QT_Version.reg"
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '14' # specify the version you need
-
-    - name: Install Yarn
-      run: npm install -g yarn
-
-    - name: Install dependencies
-      run: yarn install
-      
-    # Install Python and Sphinx
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-
-    - name: Install Sphinx and dependencies
+    - name: Build the project using msbuild
       run: |
-        python -m pip install --upgrade pip
-        pip install sphinx sphinx-rtd-theme
-
-    - name: Setup and Execute Build
-      shell: cmd
-      run: |
-        echo "Current directory: %cd%"
-        set OPENTWIN_DEV_ROOT=%cd%\OpenTwin
-        set DEVENV_ROOT_2022=%DEVENV_PATH%
-        set OPENTWIN_THIRDPARTY_ROOT=%cd%\ThirdParty
-        set QT_ROOT_DIR=%QT_PATH%
-        set PATH=%QT_ROOT_DIR%\bin;%PATH%
-        set QTDIR=%QT_ROOT_DIR%
-        set QMAKESPEC=win32-msvc
-        set QT_PLUGIN_PATH=%QT_ROOT_DIR%\plugins
-        set QtMsBuild=%LOCALAPPDATA%\QtMsBuild
-        set DefaultQtVersion=%QT_ROOT_DIR%
-        echo "OPENTWIN_DEV_ROOT=%OPENTWIN_DEV_ROOT%"
-        echo "DEVENV_ROOT_2022=%DEVENV_ROOT_2022%"
-        echo "OPENTWIN_THIRDPARTY_ROOT=%OPENTWIN_THIRDPARTY_ROOT%"
-        echo "QT_ROOT_DIR=%QT_ROOT_DIR%"
-        echo "Checking directories and necessary files..."
-        echo "OpenTwin directory: %OPENTWIN_DEV_ROOT%"
-        dir %OPENTWIN_DEV_ROOT%
-        echo "Visual Studio 2022 directory: %DEVENV_ROOT_2022%"
-        dir "%DEVENV_ROOT_2022%"
-        echo "Qt directory: %QT_ROOT_DIR%"
-        dir "%QT_ROOT_DIR%"
-        echo "Checking if BuildAll.bat exists..."
-        echo "Starting BuildAll.bat..."
-        "%DEVENV_ROOT_2022%\devenv.com" "%OPENTWIN_DEV_ROOT%\Libraries\OTWidgets\OTWidgets.vcxproj" /Build "Debug|x64"
-
-    - name: Upload build log summary artifact
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        name: build-log-Debug
-        path: ${{ github.workspace }}\OpenTwin\Scripts\BuildAndTest\buildLog_Debug.txt
-
-    - name: Upload build log summary artifact
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        name: build-log-Release
-        path: ${{ github.workspace }}\OpenTwin\Scripts\BuildAndTest\buildLog_Release.txt
-
-    - name: Upload build log summary artifact
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        name: build-log-summary
-        path: ${{ github.workspace }}\OpenTwin\Scripts\BuildAndTest\buildLog_Summary.txt
+        msbuild /p:Configuration=Release /p:Platform=x64 path\to\your\solution.sln
