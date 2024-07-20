@@ -27,30 +27,26 @@ jobs:
 
     - name: Set up Qt environment variables
       run: |
-        $qtPath = "C:\\Qt\\6.2.4\\msvc2019_64"
-        [Environment]::SetEnvironmentVariable("QTDIR", $qtPath, "Machine")
-        [Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";$qtPath\\bin", "Machine")
+        echo "QTDIR=C:\\Qt\\6.2.4\\msvc2019_64" >> $GITHUB_ENV
+        echo "PATH=$env:PATH;C:\\Qt\\6.2.4\\msvc2019_64\\bin" >> $GITHUB_ENV
 
     - name: Copy QtMsBuild directory
       run: |
         Copy-Item -Recurse -Force "${{ github.workspace }}\QtMsBuild" "$env:LOCALAPPDATA\QtMsBuild"
-
-    - name: Set QtMsBuild environment variable
-      run: |
-        [Environment]::SetEnvironmentVariable("QtMsBuild", "$env:LOCALAPPDATA\QtMsBuild", "Machine")
+        echo "QtMsBuild=$env:LOCALAPPDATA\\QtMsBuild" >> $GITHUB_ENV
 
     - name: Set DefaultQtVersion environment variable
       run: |
-        [Environment]::SetEnvironmentVariable("DefaultQtVersion", "C:\\Qt\\6.2.4\\msvc2019_64", "Machine")
+        echo "DefaultQtVersion=C:\\Qt\\6.2.4\\msvc2019_64" >> $GITHUB_ENV
 
     - name: Import Qt version registry settings
       run: reg import "${{ github.workspace }}\QT_Version.reg"
 
     - name: Verify Qt setup
       run: |
-        echo "QTDIR=$env:QTDIR"
-        echo "QtMsBuild=$env:QtMsBuild"
-        echo "DefaultQtVersion=$env:DefaultQtVersion"
+        echo "QTDIR=$QTDIR"
+        echo "QtMsBuild=$QtMsBuild"
+        echo "DefaultQtVersion=$DefaultQtVersion"
         if (-not (Test-Path "$env:QTDIR\\bin\\qmake.exe")) {
           throw "qmake.exe not found in $env:QTDIR\\bin"
         }
