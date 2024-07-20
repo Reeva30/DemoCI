@@ -3,10 +3,12 @@ name: Build Qt Project
 on:
   push:
     branches:
-      - Test
+      - main
+      - test
   pull_request:
     branches:
-      - Test
+      - main
+      - test
 
 jobs:
   build:
@@ -16,7 +18,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
       with:
-        ref: Test
+        ref: test
 
     - name: Setup Visual Studio 2022
       uses: ilammy/msvc-dev-cmd@v1
@@ -43,6 +45,16 @@ jobs:
 
     - name: Import Qt version registry settings
       run: reg import "${{ github.workspace }}\QT_Version.reg"
+
+    - name: Verify Qt setup
+      run: |
+        echo "QTDIR=$env:QTDIR"
+        echo "QtMsBuild=$env:QtMsBuild"
+        echo "DefaultQtVersion=$env:DefaultQtVersion"
+        if (-not (Test-Path "$env:QTDIR\\bin\\qmake.exe")) {
+          throw "qmake.exe not found in $env:QTDIR\\bin"
+        }
+        & "$env:QTDIR\\bin\\qmake.exe" -v
 
     - name: Build the project using msbuild
       run: |
